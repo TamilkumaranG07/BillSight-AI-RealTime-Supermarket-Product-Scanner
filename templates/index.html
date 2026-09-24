@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BillSightAI – Intelligent Supermarket Billing System</title>
+  
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <!-- Custom Flat CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="app.js"></script>
+<body>
+
+  <!-- Fixed Header Navigation Bar -->
+  <header class="navbar-custom">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+      <div class="brand-container">
+        <div class="brand-icon-mark">
+          <i class="fa-solid fa-barcode"></i>
+        </div>
+        <div>
+          <h1 class="brand-title">BillSightAI</h1>
+          <p class="brand-subtitle">AI-Powered Smart Supermarket Billing System</p>
+        </div>
+      </div>
+
+      <!-- Real-time Status Badges and Live Clock -->
+      <div class="header-status-group d-none d-md-flex">
+        <div class="status-item" id="cameraStatusBadge">
+          <span class="status-dot offline" id="dotCamera"></span>
+          <span id="labelCamera">Camera: Offline</span>
+        </div>
+        <div class="status-item" id="aiStatusBadge">
+          <span class="status-dot warning" id="dotAI"></span>
+          <span id="labelAI">AI Model: Checking...</span>
+        </div>
+        <div class="status-item" id="dbStatusBadge">
+          <span class="status-dot online" id="dotDB"></span>
+          <span>DB: SQLite Online</span>
+        </div>
+        <div class="header-clock" id="liveClock">
+          <i class="fa-regular fa-clock me-1"></i> <span id="clockText">--:--:--</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Container -->
+  <main class="container-fluid py-4 px-3 px-lg-4">
+    <div class="row g-4">
+      
+      <!-- LEFT COLUMN: Live Product Scanner -->
+      <div class="col-lg-5 col-xl-5">
+        <div class="card-flat">
+          <div class="card-flat-header">
+            <h2 class="card-flat-title">
+              <i class="fa-solid fa-camera text-dark"></i> Live Product Scanner
+            </h2>
+            <div class="form-check form-switch m-0" title="Automatically scan every 1-2s with 3s cooldown">
+              <input class="form-check-input" type="checkbox" role="switch" id="toggleAutoScan">
+              <label class="form-check-label fw-bold text-dark small" for="toggleAutoScan">Auto Scan</label>
+            </div>
+          </div>
+          <div class="card-flat-body">
+            
+            <!-- Video & Bounding Box Canvas Container -->
+            <div class="video-feed-wrapper" id="videoWrapper">
+              <video id="webcamVideo" autoplay playsinline muted></video>
+              <canvas id="overlayCanvas"></canvas>
+              
+              <!-- Scanning Animation Laser Line -->
+              <div class="scanning-laser-line" id="scannerLaser"></div>
+
+              <!-- Camera Placeholder state -->
+              <div class="scanner-placeholder" id="videoPlaceholder">
+                <i class="fa-solid fa-video-slash"></i>
+                <p class="m-0 fw-bold">Camera is Offline</p>
+                <small class="text-white-50">Click 'Start Camera' below to initialize feed</small>
+              </div>
+            </div>
+
+            <!-- Camera Controls & Dropdown -->
+            <div class="mt-3">
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <button id="btnStartCamera" class="btn btn-yellow w-100">
+                    <i class="fa-solid fa-play me-1"></i> Start Camera
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button id="btnStopCamera" class="btn btn-flat-secondary w-100" disabled>
+                    <i class="fa-solid fa-stop me-1"></i> Stop Camera
+                  </button>
+                </div>
+              </div>
+
+              <!-- Camera Source Selector -->
+              <div class="mb-3">
+                <label for="selectCamera" class="form-label small fw-bold text-secondary mb-1">Select Camera Input Device:</label>
+                <select id="selectCamera" class="form-select form-select-sm" disabled>
+                  <option value="">Detecting camera devices...</option>
+                </select>
+              </div>
+
+              <!-- Primary CTA Scan Button -->
+              <button id="btnScanProduct" class="btn btn-yellow btn-lg w-100 py-2 fs-6 mb-2" disabled>
+                <span id="scanBtnSpinner" class="spinner-border spinner-border-sm me-2 d-none" role="status"></span>
+                <i class="fa-solid fa-expand me-2" id="scanBtnIcon"></i> <span id="scanBtnText">Scan Product (Capture Frame)</span>
+              </button>
+
+              <!-- File Upload Alternative Scan Method -->
+              <div class="text-center pt-2 border-top border-light-subtle">
+                <span class="text-muted small fw-semibold me-2">Or scan from file:</span>
+                <input type="file" id="fileUploadInput" accept="image/*" class="d-none">
+                <button id="btnUploadImage" class="btn btn-sm btn-yellow-outline">
+                  <i class="fa-solid fa-upload me-1"></i> Upload Barcode Image
+                </button>
+              </div>
+            </div>
+
+            <!-- Detection Status Box -->
+            <div class="scanner-status-box" id="scannerStatusBox">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-circle-info text-secondary" id="statusBoxIcon"></i>
+                <span class="small fw-semibold" id="statusBoxText">Camera feed idle. Ready to scan.</span>
+              </div>
+              <span class="detection-badge badge-warning" id="statusBadge">IDLE</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: Current Bill Cart -->
+      <div class="col-lg-7 col-xl-7">
+        <div class="card-flat">
+          <div class="card-flat-header">
+            <h2 class="card-flat-title">
+              <i class="fa-solid fa-cart-shopping text-dark"></i> Live Billing Cart
+            </h2>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-dark text-white px-3 py-2 rounded-pill fw-bold fs-7">
+                Items: <span id="cartItemCount">0</span>
+              </span>
+              <button id="btnClearCart" class="btn btn-sm btn-flat-danger">
+                <i class="fa-solid fa-trash-can me-1"></i> Clear Cart
+              </button>
+            </div>
+          </div>
+          <div class="card-flat-body">
+            
+            <!-- Products Cart Table -->
+            <div class="cart-table-wrapper">
+              <table class="table-flat">
+                <thead>
+                  <tr>
+                    <th style="width: 5%;">No.</th>
+                    <th style="width: 35%;">Product</th>
+                    <th style="width: 20%;">Barcode</th>
+                    <th style="width: 12%;">Price</th>
+                    <th style="width: 15%; text-align: center;">Qty</th>
+                    <th style="width: 13%; text-align: right;">Total</th>
+                    <th style="width: 5%;"></th>
+                  </tr>
+                </thead>
+                <tbody id="cartTableBody">
+                  <!-- Empty Cart Initial State -->
+                  <tr id="emptyCartRow">
+                    <td colspan="7" class="text-center py-5 text-muted">
+                      <i class="fa-solid fa-basket-shopping fa-3x mb-3 text-secondary opacity-50"></i>
+                      <p class="fw-bold mb-1">Your Cart is Currently Empty</p>
+                      <small>Scan a product barcode using the scanner on the left to add items.</small>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Billing Breakdown Summary Panel -->
+            <div class="billing-summary-card">
+              <div class="summary-row">
+                <span class="text-muted fw-semibold">Product Subtotal:</span>
+                <span class="fw-bold text-dark">₹<span id="subtotalVal">0.00</span></span>
+              </div>
+              <div class="summary-row">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="text-muted fw-semibold">GST Rate:</span>
+                  <input type="number" id="inputGST" class="form-control form-control-sm text-center fw-bold" style="width: 65px;" value="5" min="0" max="30"> %
+                </div>
+                <span class="fw-bold text-dark">+ ₹<span id="gstVal">0.00</span></span>
+              </div>
+              <div class="summary-row discount-row">
+                <span class="text-muted fw-semibold">Special Discount:</span>
+                <div class="d-flex align-items-center gap-1">
+                  <span>- ₹</span>
+                  <input type="number" id="inputDiscount" class="form-control form-control-sm fw-bold" value="0.00" min="0" step="1">
+                </div>
+              </div>
+
+              <!-- Grand Total Highlight Block -->
+              <div class="grand-total-block">
+                <div>
+                  <p class="grand-total-label">Grand Total</p>
+                  <small class="text-dark opacity-75 fw-semibold">Inclusive of all taxes</small>
+                </div>
+                <div class="grand-total-amount">
+                  ₹<span id="grandTotalVal">0.00</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Billing Action Buttons -->
+            <div class="row g-2 mt-3">
+              <div class="col-md-6 col-6">
+                <button id="btnGenerateBill" class="btn btn-yellow w-100 py-2 fw-bold" disabled>
+                  <i class="fa-solid fa-file-invoice-dollar me-2"></i> Generate Bill & Checkout
+                </button>
+              </div>
+              <div class="col-md-6 col-6">
+                <button id="btnPrintInvoice" class="btn btn-yellow-outline w-100 py-2 fw-bold" disabled>
+                  <i class="fa-solid fa-print me-2"></i> Print Invoice
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- BILL RECEIPT & QR PAYMENT MODAL -->
+  <div class="modal fade" id="receiptModal" tabindex="-1" aria-labelledby="receiptModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content modal-content-receipt">
+        <div class="receipt-header-strip">
+          <h3 class="receipt-title">
+            <i class="fa-solid fa-barcode me-2"></i>BillSightAI Supermarket
+          </h3>
+          <div class="receipt-store-info">
+            123 College Campus Road, Innovation Tech Park<br>
+            GSTIN: 33AAAAA0000A1Z5 | Phone: +91 98765 43210
+          </div>
+        </div>
+        <div class="receipt-body">
+          
+          <div class="receipt-meta d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <strong>Bill No:</strong> <span id="modalBillNo">BILL-20260731-0001</span><br>
+              <strong>Date:</strong> <span id="modalBillDate">2026-07-31 09:30</span>
+            </div>
+            <div class="text-end">
+              <strong>Status:</strong> <span id="modalPaymentBadge" class="badge bg-warning text-dark fs-7 px-3 py-1"><i class="fa-solid fa-clock me-1"></i> PENDING PAYMENT</span><br>
+              <small class="text-muted">Payment: UPI / QR Code</small>
+            </div>
+          </div>
+
+          <!-- DYNAMIC QR CODE & PAYMENT SECTION -->
+          <div class="qr-payment-card mb-4 p-3 border rounded-3 bg-light text-center" id="qrPaymentCard">
+            <h6 class="fw-bold mb-2 text-dark">
+              <i class="fa-solid fa-qrcode text-warning me-1"></i> Scan QR Code to Pay & Complete Order
+            </h6>
+            <div class="d-flex flex-column flex-md-row align-items-center justify-content-center gap-3">
+              <div class="qr-img-wrapper p-2 bg-white rounded border shadow-sm">
+                <img id="modalQrCodeImg" src="" alt="Payment QR Code" style="width: 170px; height: 170px;">
+              </div>
+              <div class="text-start">
+                <p class="mb-1 text-muted small">Amount Payable:</p>
+                <h4 class="fw-extrabold text-success mb-2">₹<span id="modalQrAmount">0.00</span></h4>
+                <p class="mb-2 text-dark small">Scan using Google Pay, PhonePe, Paytm or Banking App.</p>
+                
+                <!-- SCAN QR & TRIGGER PAYMENT BUTTON -->
+                <button id="btnSimulateQrPay" class="btn btn-sm btn-success fw-bold px-3 py-2">
+                  <i class="fa-solid fa-mobile-screen-button me-1"></i> Scan / Trigger QR Payment
+                </button>
+              </div>
+            </div>
+            <div id="paymentSuccessNotice" class="alert alert-success d-none mt-3 mb-0 fw-bold animate-pulse">
+              <i class="fa-solid fa-circle-check fa-lg me-2"></i> Payment Received Successfully! Amount Paid: ₹<span id="paidAmountNotice">0.00</span>
+            </div>
+          </div>
+
+          <table class="receipt-table mb-3">
+            <thead>
+              <tr>
+                <th style="width: 45%;">Item</th>
+                <th style="width: 15%; text-align: center;">Qty</th>
+                <th style="width: 20%; text-align: right;">Price</th>
+                <th style="width: 20%; text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody id="modalReceiptItems">
+              <!-- Item rows inserted via JS -->
+            </tbody>
+          </table>
+
+          <div class="d-flex justify-content-between small mb-1">
+            <span class="fw-semibold">Subtotal:</span>
+            <span>₹<span id="modalSubtotal">0.00</span></span>
+          </div>
+          <div class="d-flex justify-content-between small mb-1">
+            <span class="fw-semibold">GST (<span id="modalGstRate">5</span>%):</span>
+            <span>₹<span id="modalGstAmount">0.00</span></span>
+          </div>
+          <div class="d-flex justify-content-between small mb-2 text-danger" id="modalDiscountRow">
+            <span class="fw-semibold">Discount:</span>
+            <span>- ₹<span id="modalDiscount">0.00</span></span>
+          </div>
+          <div class="d-flex justify-content-between pt-2 border-top border-dark fw-bold fs-6">
+            <span>FINAL AMOUNT:</span>
+            <span>₹<span id="modalGrandTotal">0.00</span></span>
+          </div>
+
+          <div class="receipt-footer-msg mt-3">
+            <i class="fa-solid fa-heart text-danger me-1"></i> Thank You for Shopping with BillSightAI!
+          </div>
+        </div>
+
+        <div class="modal-footer bg-light border-top-0 d-flex justify-content-between">
+          <button type="button" class="btn btn-flat-secondary" data-bs-dismiss="modal">Close</button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-yellow-outline" id="btnPreviewInvoiceImage">
+              <i class="fa-solid fa-image me-1"></i> Preview Invoice Image
+            </button>
+            <button type="button" class="btn btn-yellow" id="btnPrintReceiptDirect">
+              <i class="fa-solid fa-print me-1"></i> Print Receipt
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVOICE RECEIPT IMAGE PREVIEW MODAL -->
+  <div class="modal fade" id="invoiceImageModal" tabindex="-1" aria-labelledby="invoiceImageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title fw-bold" id="invoiceImageModalLabel">
+            <i class="fa-solid fa-file-invoice me-2 text-warning"></i> Invoice Receipt Image Preview
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center bg-secondary bg-opacity-10 py-4">
+          <p class="small text-muted mb-2 fw-semibold">This image looks like an official thermal bill receipt. You can optionally print it.</p>
+          <!-- GENERATED BILL IMAGE -->
+          <div class="invoice-img-container shadow rounded p-2 bg-white d-inline-block border">
+            <img id="invoicePreviewImg" class="img-fluid" alt="Generated Invoice Bill Image" style="max-height: 480px;">
+          </div>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <button type="button" class="btn btn-flat-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-yellow" id="btnPrintFromImageModal">
+            <i class="fa-solid fa-print me-1"></i> Print Invoice to Printer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/bootstrap.bundle.min.js"></script>
+  <!-- Application JS -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+

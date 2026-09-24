@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <rect width="100" height="100" rx="12" fill="#F7F7F7"/>
+  <rect x="25" y="35" width="50" height="30" rx="10" fill="#FFC107" stroke="#1A1A1A" stroke-width="3"/>
+  <text x="50" y="54" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#1A1A1A" text-anchor="middle">SOAP</text>
+</svg>
