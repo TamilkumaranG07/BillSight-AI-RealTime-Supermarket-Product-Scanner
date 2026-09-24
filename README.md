@@ -5,7 +5,7 @@
 
 ---
 
-## 🌟 Key Features
+##  Key Features
 
 - **Flat White & Yellow UI Theme**: Clean, professional supermarket cashier dashboard built with vanilla CSS3 and Bootstrap 5 (strictly flat colors — zero gradients, glassmorphism, or glow effects).
 - **Live Product Scanner**: Webcam video feed with real-time bounding box canvas overlay (yellow bounding box, detected class, confidence %), camera selector, auto-scan mode with 3-second cooldown logic to prevent duplicate cart additions.
@@ -16,7 +16,7 @@
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 c:/Project Phase 1/web_app/
@@ -49,7 +49,7 @@ c:/Project Phase 1/web_app/
 
 ---
 
-## 🚀 Quick Setup & Execution Guide
+##  Quick Setup & Execution Guide
 
 ### Prerequisites
 - Python 3.9, 3.10, or 3.11 installed
@@ -90,7 +90,7 @@ http://127.0.0.1:5000
 
 ---
 
-## 📊 Sample Database Barcodes for Testing
+##  Sample Database Barcodes for Testing
 
 | Barcode | Product Name | Category | Price (₹) | Stock |
 | :--- | :--- | :--- | :--- | :--- |
@@ -109,7 +109,7 @@ http://127.0.0.1:5000
 
 ---
 
-## 📡 REST API Documentation
+##  REST API Documentation
 
 ### `GET /api/health`
 Checks backend and AI model status.
@@ -164,7 +164,7 @@ Saves a transaction to the SQLite database and generates a printable invoice.
 
 ---
 
-## 🎓 College Demonstration Guide
+## Demonstration Guide
 1. Start `python app.py` and open `http://127.0.0.1:5000`.
 2. Click **Start Camera** to activate the webcam.
 3. Hold up any product barcode (e.g. Milk `8901234567890` or Bread `8901234567891` barcode image on phone or printed sheet) in front of the lens.
